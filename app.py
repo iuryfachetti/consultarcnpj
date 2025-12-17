@@ -5,7 +5,7 @@ import pandas as pd
 # Configuração da página
 st.set_page_config(page_title="Consulta CNPJ Pro", page_icon="🏢", layout="wide")
 
-st.title("🏢 Consulta de Estabelecimentos (By Iury Fachetti)")
+st.title("🏢 Consulta de Estabelecimentos (By: Iury Fachetti)")
 st.markdown("---")
 
 # Input do CNPJ
