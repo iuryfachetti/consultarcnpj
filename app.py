@@ -21,33 +21,44 @@ if st.button("Consultar Empresa"):
                 if response.status_code == 200:
                     d = response.json()
                     
-                    # --- ÁREA DE RESUMO ---
-                    col1, col2, col3 = st.columns(3)
+                    # --- ÁREA DE RESUMO (MÉTRICAS) ---
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         st.metric("Situação", d.get("status", {}).get("text", "N/A"))
                     with col2:
                         st.metric("Data da Pesquisa", d.get("updated", "")[:10])
                     with col3:
                         st.metric("Fundação", d.get("founded", "N/A"))
+                    with col4:
+                        # EXIBINDO O CÓDIGO CNAE EM DESTAQUE NA PARTE SUPERIOR
+                        cnae_principal_id = d.get("mainActivity", {}).get("id", "N/A")
+                        st.metric("CNAE Principal", cnae_principal_id)
 
-                    # --- DADOS PRINCIPAIS ---
-                    st.subheader("📋 Informações Cadastrais")
+                    # --- DESTAQUE DO CNAE E RAZÃO SOCIAL ---
+                    st.subheader("📋 Informações Principais")
+                    
+                    # Usando uma caixa de destaque para o CNAE Principal e Descrição
+                    main_act_text = d.get("mainActivity", {}).get("text", "N/A")
+                    st.info(f"**Atividade Principal (CNAE {cnae_principal_id}):** {main_act_text}")
+                    
                     st.write(f"**Razão Social:** {d.get('company', {}).get('name', 'N/A')}")
                     st.write(f"**Nome Fantasia:** {d.get('alias', 'Não informado')}")
                     st.write(f"**CNPJ:** {d.get('taxId', 'N/A')}")
-                    st.write(f"**Natureza Jurídica:** {d.get('company', {}).get('nature', {}).get('text', 'N/A')}")
                     
                     # --- CONTATO E ENDEREÇO ---
+                    st.markdown("---")
                     c1, c2 = st.columns(2)
                     with c1:
-                        st.info("📍 Endereço")
+                        st.subheader("📍 Endereço")
                         addr = d.get("address", {})
-                        st.write(f"{addr.get('street')}, {addr.get('number')} - {addr.get('details', '')}")
-                        st.write(f"{addr.get('district')} - {addr.get('city')}/{addr.get('state')}")
-                        st.write(f"CEP: {addr.get('zip')}")
+                        st.write(f"**Logradouro:** {addr.get('street')}, {addr.get('number')}")
+                        st.write(f"**Complemento:** {addr.get('details', 'N/A')}")
+                        st.write(f"**Bairro:** {addr.get('district')}")
+                        st.write(f"**Cidade/UF:** {addr.get('city')} - {addr.get('state')}")
+                        st.write(f"**CEP:** {addr.get('zip')}")
                     
                     with c2:
-                        st.info("📞 Contato")
+                        st.subheader("📞 Contato")
                         emails = d.get("emails", [])
                         phones = d.get("phones", [])
                         st.write(f"**E-mail:** {emails[0].get('address') if emails else 'N/A'}")
@@ -55,7 +66,7 @@ if st.button("Consultar Empresa"):
                             for p in phones:
                                 st.write(f"**Telefone:** ({p.get('area')}) {p.get('number')}")
 
-                    # --- SÓCIOS (QUADRO SOCIETÁRIO) ---
+                    # --- SÓCIOS ---
                     with st.expander("👥 Quadro de Sócios e Administradores"):
                         members = d.get("company", {}).get("members", [])
                         if members:
@@ -66,12 +77,11 @@ if st.button("Consultar Empresa"):
                         else:
                             st.write("Nenhum sócio listado.")
 
-                    # --- ATIVIDADES ---
-                    with st.expander("🛠 Atividades Econômicas (CNAEs)"):
-                        st.write(f"**Principal:** {d.get('mainActivity', {}).get('text')}")
-                        st.write("**Secundárias:**")
+                    # --- ATIVIDADES SECUNDÁRIAS COM CÓDIGO ---
+                    with st.expander("🛠 Atividades Secundárias (Lista de CNAEs)"):
                         for act in d.get("sideActivities", []):
-                            st.write(f"- {act.get('text')}")
+                            # Aqui também exibe o ID (Código) ao lado do texto
+                            st.write(f"**{act.get('id')}** - {act.get('text')}")
 
                     # --- EXPORTAÇÃO ---
                     st.markdown("---")
