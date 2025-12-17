@@ -2,54 +2,91 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# Configuração visual simples
-st.set_page_config(page_title="Consultor de CNPJ", page_icon="🏢")
+# Configuração da página
+st.set_page_config(page_title="Consulta CNPJ Pro", page_icon="🏢", layout="wide")
 
-st.title("🏢 Consultor de CNPJ")
-st.write("Insira o CNPJ abaixo para buscar dados e baixar o CSV.")
+st.title("🏢 Consulta de Estabelecimentos (API Open)")
+st.markdown("---")
 
-# Campo de entrada
-cnpj_input = st.text_input("Digite apenas os números do CNPJ:", placeholder="31952078000130")
+# Input do CNPJ
+cnpj_input = st.text_input("Digite o CNPJ (apenas números):", placeholder="31952078000130")
 
-if st.button("Consultar"):
+if st.button("Consultar Empresa"):
     if cnpj_input:
-        with st.spinner('Buscando dados...'):
+        with st.spinner('Acessando base de dados...'):
             try:
-                # Requisição para a API
                 url = f"https://open.cnpja.com/office/{cnpj_input}"
                 response = requests.get(url)
                 
                 if response.status_code == 200:
-                    dados = response.json()
+                    d = response.json()
                     
-                    # Organizando os dados principais para exibir
-                    resumo = {
-                        "Razão Social": dados.get("company", {}).get("name"),
-                        "Nome Fantasia": dados.get("alias"),
-                        "Situação": dados.get("status", {}).get("text"),
-                        "Data de Abertura": dados.get("founded"),
-                        "Cidade": dados.get("address", {}).get("city"),
-                        "Estado": dados.get("address", {}).get("state")
-                    }
-                    
-                    # Mostra os dados na tela
-                    st.success("Dados encontrados!")
-                    st.json(dados) # Mostra o JSON completo de forma organizada
-                    
-                    # Cria um DataFrame para o CSV
-                    df = pd.json_normalize(dados) # Achata o JSON complexo em uma linha de tabela
-                    csv = df.to_csv(index=False).encode('utf-8')
+                    # --- ÁREA DE RESUMO ---
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Situação", d.get("status", {}).get("text", "N/A"))
+                    with col2:
+                        st.metric("Data da Pesquisa", d.get("updated", "")[:10])
+                    with col3:
+                        st.metric("Fundação", d.get("founded", "N/A"))
 
-                    # Botão de Download
+                    # --- DADOS PRINCIPAIS ---
+                    st.subheader("📋 Informações Cadastrais")
+                    st.write(f"**Razão Social:** {d.get('company', {}).get('name', 'N/A')}")
+                    st.write(f"**Nome Fantasia:** {d.get('alias', 'Não informado')}")
+                    st.write(f"**CNPJ:** {d.get('taxId', 'N/A')}")
+                    st.write(f"**Natureza Jurídica:** {d.get('company', {}).get('nature', {}).get('text', 'N/A')}")
+                    
+                    # --- CONTATO E ENDEREÇO ---
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.info("📍 Endereço")
+                        addr = d.get("address", {})
+                        st.write(f"{addr.get('street')}, {addr.get('number')} - {addr.get('details', '')}")
+                        st.write(f"{addr.get('district')} - {addr.get('city')}/{addr.get('state')}")
+                        st.write(f"CEP: {addr.get('zip')}")
+                    
+                    with c2:
+                        st.info("📞 Contato")
+                        emails = d.get("emails", [])
+                        phones = d.get("phones", [])
+                        st.write(f"**E-mail:** {emails[0].get('address') if emails else 'N/A'}")
+                        if phones:
+                            for p in phones:
+                                st.write(f"**Telefone:** ({p.get('area')}) {p.get('number')}")
+
+                    # --- SÓCIOS (QUADRO SOCIETÁRIO) ---
+                    with st.expander("👥 Quadro de Sócios e Administradores"):
+                        members = d.get("company", {}).get("members", [])
+                        if members:
+                            for m in members:
+                                st.write(f"**Nome:** {m.get('person', {}).get('name')}")
+                                st.write(f"**Cargo:** {m.get('role', {}).get('text')} | **Desde:** {m.get('since')}")
+                                st.write("---")
+                        else:
+                            st.write("Nenhum sócio listado.")
+
+                    # --- ATIVIDADES ---
+                    with st.expander("🛠 Atividades Econômicas (CNAEs)"):
+                        st.write(f"**Principal:** {d.get('mainActivity', {}).get('text')}")
+                        st.write("**Secundárias:**")
+                        for act in d.get("sideActivities", []):
+                            st.write(f"- {act.get('text')}")
+
+                    # --- EXPORTAÇÃO ---
+                    st.markdown("---")
+                    df = pd.json_normalize(d)
+                    csv = df.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        label="📥 Baixar dados em CSV",
+                        label="📥 Baixar Ficha Completa em CSV",
                         data=csv,
-                        file_name=f"cnpj_{cnpj_input}.csv",
+                        file_name=f"consulta_{cnpj_input}.csv",
                         mime="text/csv",
                     )
+
                 else:
-                    st.error(f"Erro na consulta: CNPJ não encontrado ou erro na API (Status {response.status_code})")
+                    st.error("CNPJ não encontrado ou erro na API.")
             except Exception as e:
-                st.error(f"Ocorreu um erro: {e}")
+                st.error(f"Erro ao processar: {e}")
     else:
-        st.warning("Por favor, digite um CNPJ.")
+        st.warning("Insira um CNPJ válido.")
